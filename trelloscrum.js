@@ -15,11 +15,14 @@
 ** Cedric Gatay <https://github.com/CedricGatay>
 **
 */
+// TODO
+// Board total percent
+// Make filter cleaner (work) (this.__defineGetter__)
 
 //default story point picker sequence
 var _pointSeq = ['?', 0, 1, 2, 3, 5, 8, 13, 20];
 //attributes representing points values for card
-var _pointsAttr = ['cpoints', 'points'];
+var _pointsAttr = ['points', 'cpoints'];
 
 
 //internals
@@ -39,58 +42,65 @@ var Utils = (function(){
 })();
 
 //what to do when DOM loads
-$(function(){
+$(function () {
 	//watch filtering
-	$('.js-filter-toggle').live('mouseup',function(e){
-		setTimeout(function(){
-			filtered=$('.js-filter-cards').hasClass('is-on');
+	$('.js-filter-toggle').live('mouseup', function (e) {
+		setTimeout(function () {
+			filtered = $('.js-filter-cards').hasClass('is-on');
 			calcPoints()
 		})
 	});
 
 	//for storypoint picker
-	$(".card-detail-title .edit-controls").live('DOMNodeInserted',showPointPicker);
+	$(".card-detail-title .edit-controls").live('DOMNodeInserted', showPointPicker);
 
-	$('body').bind('DOMSubtreeModified DOMNodeInserted',function(e){
-		if($(e.target).hasClass('list')){
+	$('body').bind('DOMSubtreeModified DOMNodeInserted', function (e) {
+		if ($(e.target).hasClass('list')) {
 			readList($(e.target));
 			computeTotal();
 		}
 	});
 
 
-	$('.js-share').live('mouseup',function(){
+	$('.js-share').live('mouseup', function () {
 		setTimeout(checkExport)
 	});
-	
-	function computeTotal(){
+
+	function computeTotal() {
+		var $cardCount = $(".list-card").length;
 		var $title = $(".board-title");
 		var $total = $(".board-title .list-total");
-		if ($total.length == 0){
+		if ($total.length == 0) {
 			$total = $("<span class='list-total'>").appendTo($title);
 		}
-		for (var i in _pointsAttr){
+		for (var i in _pointsAttr) {
 			var score = 0;
 			var attr = _pointsAttr[i];
-			$("#board .list-total ."+attr).each(function(){ 
-				var value = $(this).text();
-				if (value && !isNaN(value)){
-					score+=parseFloat(value);
-				} 
+			$("#board .list-total ." + attr).each(function () {
+				var value = $(this).text().replace("%", "");
+				if (value && !isNaN(value)) {
+					score += parseFloat(value);
+				}
 			});
-			var $countElem = $('.board-title .list-total .'+attr);
-			if ($countElem.length > 0){
+			if (attr == "cpoints") {
+				score = score / $cardCount;
+			}
+			var $countElem = $('.board-title .list-total .' + attr);
+			if ($countElem.length > 0) {
 				$countElem.remove();
 			}
-			$total.append("<span class='"+attr+"'>"+Utils.roundValue(score)+"</span>");
+			if (attr == "cpoints")
+				$total.append("<span class='" + attr + "'>" + Utils.roundValue(score) + "to do..</span>");
+			else
+				$total.append("<span class='" + attr + "'>" + Utils.roundValue(score) + "</span>");
 		}
 	}
 
-	function readList($c){
+	function readList($c) {
 
-		$c.each(function(){
-			if(!this.list) new List(this);
-			else if(this.list.calc) this.list.calc();
+		$c.each(function () {
+			if (!this.list) new List(this);
+			else if (this.list.calc) this.list.calc();
 		})
 	}
 
@@ -151,15 +161,37 @@ function List(el){
 		})
 	};
 
-	this.calc = function(){
-		$total.empty();
-		for (var i in _pointsAttr){
-			var score=0;
-			var attr = _pointsAttr[i];
-			$list.find('.list-card').each(function(){if(this.listCard && !isNaN(Number(this.listCard[attr].points)))score+=Number(this.listCard[attr].points)});
-			var scoreTruncated = Utils.roundValue(score);			
-			$total.append('<span class="'+attr+'">'+(scoreTruncated>0?scoreTruncated:'')+'</span>');
-		}
+	this.calc = function () {
+	    $total.empty();
+	    isFiltered = ($("#board.filtering").length > 0)
+	    for (var i in _pointsAttr) {
+	        var score = 0;
+	        var cards;
+	        var attr = _pointsAttr[i];
+	        // && (!isFiltered || isFiltered && )
+	        var cards = $list.find('.list-card');
+	        cards.each(function () {
+	            matchedCard = $(this).is(".matched-card")
+	            if (this.listCard && (!isFiltered || (isFiltered && matchedCard)) && !isNaN(Number(this.listCard[attr].points)))
+	                score += Number(this.listCard[attr].points)
+	        });
+
+	        if (attr == "cpoints") {
+	            var scoreTruncated = Utils.roundValue(score);
+				totalCards = isFiltered ? cards.filter(".matched-card").length : cards.length;
+
+
+	            if (scoreTruncated > 0) {
+	                var averagePercent = Utils.roundValue(scoreTruncated / totalCards);
+	            }
+
+	            $total.append('<span class="' + attr + '">' + (averagePercent > 0 ? averagePercent + "%" : '') + '</span>');
+	        }
+	        else {
+	            var scoreTruncated = Utils.roundValue(score);
+	            $total.append('<span class="' + attr + '">' + (scoreTruncated > 0 ? scoreTruncated : '') + '</span>');
+	        }
+	    }
 	};
 
 	readCard($list.find('.list-card'));
@@ -203,9 +235,9 @@ function ListCard(el, identifier){
 		points=parsed?parsed[1]:-1;
 		if($card.parent()[0]){
 			$title[0].textContent = title.replace(regexp,'');
-			$badge.text(that.points);
+			$badge.text(that.points + (consumed ? '%' : ''));
 			consumed?$badge.addClass("consumed"):$badge.removeClass('consumed');
-			$badge.attr({title: 'This card has '+that.points+ (consumed?' consumed':'')+' storypoint' + (that.points == 1 ? '.' : 's.')})
+			$badge.attr({ title: 'This card is ' + that.points + (consumed ? '% complete' : ' hours') + (that.points == 1 || consumed ? '.' : 's.') })
 		}
 	};
 
