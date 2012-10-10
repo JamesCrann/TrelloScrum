@@ -54,12 +54,18 @@ $(function () {
 	//for storypoint picker
 	$(".card-detail-title .edit-controls").live('DOMNodeInserted', showPointPicker);
 
+
+
 	$('body').bind('DOMSubtreeModified DOMNodeInserted', function (e) {
 		if ($(e.target).hasClass('list')) {
 			readList($(e.target));
 			computeTotal();
+
 		}
+
 	});
+
+
 
 
 	$('.js-share').live('mouseup', function () {
@@ -67,7 +73,7 @@ $(function () {
 	});
 
 	function computeTotal() {
-		var $cardCount = $(".list-card").length;
+
 		var $title = $(".board-title");
 		var $total = $(".board-title .list-total");
 		if ($total.length == 0) {
@@ -82,16 +88,22 @@ $(function () {
 					score += parseFloat(value);
 				}
 			});
-			if (attr == "cpoints") {
-				score = score / $cardCount;
-			}
 			var $countElem = $('.board-title .list-total .' + attr);
 			if ($countElem.length > 0) {
 				$countElem.remove();
 			}
-			if (attr == "cpoints")
-				$total.append("<span class='" + attr + "'>" + Utils.roundValue(score) + "to do..</span>");
-			else
+
+			if (attr == "cpoints") {
+				var boardTotalPercentage = 0;
+				$(".list-card .badges .consumed").each(function () {
+					var value = $(this).text().replace("%", "");
+					if (value && !isNaN(value)) {
+						boardTotalPercentage += parseFloat(value);
+					}
+				});
+				$total.append("<span class='" + attr + "'>" + Utils.roundValue(boardTotalPercentage / $(".list-card").length) + "%</span>");
+			}
+			if (attr == "points")
 				$total.append("<span class='" + attr + "'>" + Utils.roundValue(score) + "</span>");
 		}
 	}
