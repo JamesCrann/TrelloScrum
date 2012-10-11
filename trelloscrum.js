@@ -16,7 +16,6 @@
 **
 */
 // TODO
-// Board total percent
 // Make filter work with list and board points (this.__defineGetter__) isFiltered should be removed
 
 //default story point picker sequence
@@ -43,80 +42,88 @@ var Utils = (function () {
 
 //what to do when DOM loads
 $(function () {
-    //watch filtering
-    $('.js-filter-toggle').live('mouseup', function (e) {
-        setTimeout(function () {
-            filtered = $('.js-filter-cards').hasClass('is-on');
-            calcPoints()
-        })
-    });
+	//watch filtering
+	$('.js-filter-toggle').live('mouseup', function (e) {
+		setTimeout(function () {
+			filtered = $('.js-filter-cards').hasClass('is-on');
+			calcPoints()
+		})
+	});
 
-    //for storypoint picker
-    $(".card-detail-title .edit-controls").live('DOMNodeInserted', showPointPicker);
-
-
-
-    $('body').bind('DOMSubtreeModified DOMNodeInserted', function (e) {
-        if ($(e.target).hasClass('list')) {
-            readList($(e.target));
-            computeTotal();
-
-        }
-
-    });
+	//for storypoint picker
+	$(".card-detail-title .edit-controls").live('DOMNodeInserted', showPointPicker);
 
 
 
+	$('body').bind('DOMSubtreeModified DOMNodeInserted', function (e) {
+		if ($(e.target).hasClass('list')) {
+			readList($(e.target));
+			computeTotal();
 
-    $('.js-share').live('mouseup', function () {
-        setTimeout(checkExport)
-    });
+		}
 
-    function computeTotal() {
-
-        var $title = $(".board-title");
-        var $total = $(".board-title .list-total");
-        if ($total.length == 0) {
-            $total = $("<span class='list-total'>").appendTo($title);
-        }
-
-        var percentPoints = 0;
-        var points = 0
-        $("#board .list-total").each(function () {
-            var pointsValue = $(".points", $(this)).text();
-            var percentValue = $(".cpoints", $(this)).text().replace("%", "");
-            if (pointsValue && !isNaN(pointsValue)) {
-                points += parseFloat(pointsValue);
-            }
-            if (percentValue && !isNaN(percentValue)) {
-                percentPoints += parseFloat((percentValue / 100) * pointsValue);
-            }
-        });
-        var $countElem = $('.board-title .list-total .points');
-        if ($countElem.length > 0) {
-            $countElem.remove();
-        }
-
-        var $countElem = $('.board-title .list-total .cpoints');
-        if ($countElem.length > 0) {
-            $countElem.remove();
-        }
+	});
 
 
-        $total.append("<span class='points'>" + Utils.roundValue(points) + "</span><span class='cpoints'>" + Utils.roundValue((percentPoints / points) * 100) + "%</span>");
-
-    }
-
-    function readList($c) {
-
-        $c.each(function () {
-            if (!this.list) new List(this);
-            else if (this.list.calc) this.list.calc();
-        })
-    }
 
 
-    readList($('.list'));
+	$('.js-share').live('mouseup', function () {
+		setTimeout(checkExport)
+	});
+
+	function computeTotal() {
+
+		var $title = $(".board-title");
+		var $total = $(".board-title .list-total");
+		if ($total.length == 0) {
+			$total = $("<span class='list-total'>").appendTo($title);
+		}
+
+		var percentPoints = 0;
+		var points = 0
+		$("#board .list-total").each(function () {
+			var pointsValue = 0;
+			var percentValue = 0;
+			var pointsValue = $(".points", $(this)).text();
+			if (pointsValue && !isNaN(pointsValue)) {
+				points += parseFloat(pointsValue);
+			}
+
+
+			var percentValue = $(".cpoints", $(this)).text().replace("%", "");
+			percentValue = (isNaN(percentValue) || percentValue == "") ? 0 : percentValue;
+			if (percentValue > 0)
+				percentPoints += parseFloat((percentValue / 100) * pointsValue);
+
+
+		});
+		var $countElem = $('.board-title .list-total .points');
+		if ($countElem.length > 0) {
+			$countElem.remove();
+		}
+
+		var $countElem = $('.board-title .list-total .cpoints');
+		if ($countElem.length > 0) {
+			$countElem.remove();
+		}
+
+
+		var percentTruncated = (percentPoints == 0 || points == 0) ? 0 : Utils.roundValue((percentPoints / points) * 100);
+
+		$total.append("<span class='points'>" + Utils.roundValue(points) + "</span><span class='cpoints'>" + percentTruncated + "%</span>");
+
+	}
+
+	function readList($c) {
+
+		$c.each(function () {
+			if (!this.list) new List(this);
+			else if (this.list.calc) this.list.calc();
+		})
+	}
+
+
+	readList($('.list'));
 
 });
 
@@ -173,38 +180,41 @@ function List(el) {
     };
 
     this.calc = function () {
-        $total.empty();
-        isFiltered = ($("#board.filtering").length > 0)
-        var totalCardsWithPoints = 0;
-        var percentPoints = 0;
-        var points = 0
-        var cards = $list.find('.list-card');
-        cards.each(function () {
-            var pointsValue = 0;
-            var percentValue = 0;
-            matchedCard = $(this).is(".matched-card")
+		//List header
+    	$total.empty();
+    	isFiltered = ($("#board.filtering").length > 0)
+    	var totalCardsWithPoints = 0;
+    	var percentPoints = 0;
+    	var points = 0
+    	var cards = $list.find('.list-card');
+    	cards.each(function () {
+    		var pointsValue = 0;
+    		var percentValue = 0;
+    		matchedCard = $(this).is(".matched-card")
 
-            if (this.listCard) {
-                pointsValue = this.listCard['points'].points;
-                if ((!isFiltered || (isFiltered && matchedCard)) && !isNaN(pointsValue)) {
-                    points += parseFloat(pointsValue)
-                    if (Number(this.listCard['points'].points) > 0)
-                        totalCardsWithPoints++;
-                }
-            
-                percentValue = this.listCard['cpoints'].points;
-                if (this.listCard && (!isFiltered || (isFiltered && matchedCard)) && !isNaN(percentValue)) {
-                    percentPoints += (parseFloat(percentValue) / 100) * pointsValue;
+    		if (this.listCard) {
+    			
+				pointsValue = this.listCard['points'].points;
 
-                }
-            }
-        });
+				if (pointsValue && (!isFiltered || (isFiltered && matchedCard)) && !isNaN(pointsValue)) {
+    				points += parseFloat(pointsValue)
+    				if (Number(this.listCard['points'].points) > 0)
+    					totalCardsWithPoints++;
+    			}
 
+    			percentValue = this.listCard['cpoints'].points;
+    			percentValue = (isNaN(percentValue) || percentValue=="") ? 0 : percentValue;
+    			if (this.listCard && (!isFiltered || (isFiltered && matchedCard))) {
+    				percentPoints += (parseFloat(percentValue) / 100) * pointsValue;
 
-        var percentPointsTruncated = Utils.roundValue((percentPoints / points) * 100);
-        var pointsTruncated = Utils.roundValue(points);
+    			}
+    		}
+    	});
 
-        $total.append('<span class="points">' + (pointsTruncated > 0 ? pointsTruncated : '') + '</span><span class="cpoints">' + (percentPointsTruncated > 0 ? percentPointsTruncated + "%" : '') + '</span>');
+    	var percentTruncated = (percentPoints==0 || points ==0) ? 0 : Utils.roundValue((percentPoints / points) * 100);
+    	var pointsTruncated = Utils.roundValue(points);
+
+    	$total.append('<span class="points">' + (pointsTruncated > 0 ? pointsTruncated : '') + '</span><span class="cpoints">' + percentTruncated + '%</span>');
 
 
 
@@ -252,9 +262,9 @@ function ListCard(el, identifier) {
         points = parsed ? parsed[1] : -1;
         if ($card.parent()[0]) {
             $title[0].textContent = title.replace(regexp, '');
-            $badge.text(that.points + (consumed ? '%' : ''));
+            $badge.text((consumed && that.points == "" ? 0 : that.points) + (consumed ? '%' : ''));
             consumed ? $badge.addClass("consumed") : $badge.removeClass('consumed');
-            $badge.attr({ title: 'This card is ' + that.points + (consumed ? '% complete' : ' hours') + (that.points == 1 || consumed ? '.' : 's.') })
+            $badge.attr({ title: 'This card is ' + that.points + (consumed ? '% complete' : ' hour') + (that.points == 1 || consumed ? '.' : 's.') })
         }
     };
 
